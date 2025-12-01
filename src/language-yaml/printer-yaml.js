@@ -264,6 +264,9 @@ function printNode(path, options, print) {
         node.position.end.offset - 1,
       );
 
+      // Don't wrap quoted attributes in the frontMatter
+      options.proseWrap = "never";
+
       if (
         (node.type === "quoteSingle" && raw.includes("\\")) ||
         (node.type === "quoteDouble" && /\\[^"]/u.test(raw))
