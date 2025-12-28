@@ -17,7 +17,6 @@ test_checboxes: clean
     bun ../../bin/prettier.cjs --write ./checkboxs.md
     bat ./checkboxs.md
 
-
 # Run frontmatter test
 test_frontmatter: clean
     bun ../../bin/prettier.cjs --write ./frontmatter.md
