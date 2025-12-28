@@ -33,7 +33,7 @@ function printList(path, options, print) {
       const { node: childNode } = path;
 
       // Don't wrap checklist since I'm using [Tasks Plugin](https://publish.obsidian.md/tasks/Introduction)
-      if (childNode.checked) {
+      if (childNode.checked != null) {
         options.proseWrap = "never";
       }
 
