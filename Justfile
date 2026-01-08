@@ -7,6 +7,6 @@ build:
     yarn install
     bun run build
 
-# Install into `$HOME/.local/bin` with the `prettier-sb` name
+# Install `prettier-sb` into `$HOME/.local/bin`
 install: build
     ln -sf "$(pwd)/dist/prettier/bin/prettier.cjs" "$HOME/.local/bin/prettier-sb"
