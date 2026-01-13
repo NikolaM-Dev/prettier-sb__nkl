@@ -15,3 +15,7 @@ install: build
 test:
     bun run test:second-brain
 
+# Keep update `upstream`
+update:
+    git switch main
+    git pull upstream main
