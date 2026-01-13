@@ -139,6 +139,7 @@
     "@eslint/js": "9.39.2",
     "@stylistic/eslint-plugin": "5.6.1",
     "@types/jsesc": "3.0.3",
+    "@types/prettier": "3.0.0",
     "@typescript-eslint/eslint-plugin": "8.52.0",
     "@typescript-eslint/parser": "8.52.0",
     "base64-arraybuffer-es6": "3.1.0",
@@ -189,6 +190,7 @@
     "tempy": "3.1.0",
     "tinybench": "6.0.0",
     "ts-expect": "1.3.0",
+    "vitest": "4.0.17",
     "yaml-test-suite": "0.1.0"
   },
   "resolutions": {
@@ -209,7 +211,7 @@
     "test:production:browser:chrome:umd": "cross-env TEST_BUNDLE_FORMAT=umd yarn test:production:browser:chrome",
     "test:production:browser:firefox:umd": "cross-env TEST_BUNDLE_FORMAT=umd yarn test:production:browser:firefox",
     "test:production-lint": "eslint dist --config=./scripts/production-eslint-config.js --quiet --format friendly",
-    "test:second-brain": "jest --  ./tests/format/markdown/second-brain",
+    "test:second-brain": "vitest",
     "perf": "yarn && yarn build && cross-env NODE_ENV=production node ./dist/prettier/bin/prettier.cjs",
     "perf:inspect": "yarn && yarn build && cross-env NODE_ENV=production node --inspect-brk ./dist/prettier/bin/prettier.cjs",
     "perf:benchmark": "yarn perf --debug-benchmark",
