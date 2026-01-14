@@ -14,6 +14,7 @@ import getTextWithoutComments from "../utilities/get-text-without-comments.js";
 import {
   createTypeCheckFunction,
   getCallArguments,
+  getComponentParameters,
   getFunctionParameters,
   isBinaryCastExpression,
   isCallExpression,
@@ -21,6 +22,7 @@ import {
   isConditionalType,
   isIntersectionType,
   isMemberExpression,
+  isMethod,
   isObjectProperty,
   isPrettierIgnoreComment,
   isUnionType,
@@ -61,9 +63,10 @@ const isSingleLineComment = (comment, text) =>
  */
 function handleOwnLineComment(context) {
   return [
+    handleCommentInEmptyParens,
     handleIgnoreComments,
     handleConditionalExpressionComments,
-    handleLastFunctionArgComments,
+    handleLastFunctionParameterComments,
     handleLastComponentArgComments,
     handleMemberExpressionComments,
     handleIfStatementComments,
@@ -83,7 +86,6 @@ function handleOwnLineComment(context) {
     handleCommentsInDestructuringPattern,
     handleTSMappedTypeComments,
     handleBinaryCastExpressionComment,
-    handleCommentInEmptyParens,
   ].some((fn) => fn(context));
 }
 
@@ -93,8 +95,9 @@ function handleOwnLineComment(context) {
  */
 function handleEndOfLineComment(context) {
   return [
+    handleCommentInEmptyParens,
     handleClosureTypeCastComments,
-    handleLastFunctionArgComments,
+    handleLastFunctionParameterComments,
     handleConditionalExpressionComments,
     handleModuleSpecifiersComments,
     handleIfStatementComments,
@@ -114,7 +117,6 @@ function handleEndOfLineComment(context) {
     handleCommentAfterArrowExpression,
     handlePropertySignatureComments,
     handleBinaryCastExpressionComment,
-    handleCommentInEmptyParens,
   ].some((fn) => fn(context));
 }
 
@@ -124,10 +126,10 @@ function handleEndOfLineComment(context) {
  */
 function handleRemainingComment(context) {
   return [
+    handleCommentInEmptyParens,
     handleIgnoreComments,
     handleIfStatementComments,
     handleWhileComments,
-    handleCommentInEmptyParens,
     handleMethodNameComments,
     handleOnlyComments,
     handleCommentAfterArrowParams,
@@ -618,8 +620,19 @@ function handleCommentAfterArrowParams({ comment, enclosingNode, text }) {
 }
 
 function isInArgumentOrParameterParentheses(node, comment, options) {
+  const commentStart = locStart(comment);
+  const nodeEnd = locEnd(node);
+  if (commentStart >= nodeEnd) {
+    return false;
+  }
+
+  const commentEnd = locEnd(comment);
   const nodeStart = locStart(node);
-  const nodeText = getTextWithoutComments(options, nodeStart, locEnd(node));
+  if (commentEnd <= nodeStart) {
+    return false;
+  }
+
+  const nodeText = getTextWithoutComments(options, nodeStart, nodeEnd);
 
   return (
     nodeText
@@ -633,22 +646,20 @@ function isInArgumentOrParameterParentheses(node, comment, options) {
   );
 }
 
+const isFlowComponent = createTypeCheckFunction([
+  "ComponentDeclaration",
+  "DeclareComponent",
+  "ComponentTypeAnnotation",
+]);
+
 function handleCommentInEmptyParens({ comment, enclosingNode, options }) {
   if (!enclosingNode) {
     return false;
   }
 
-  // This condition should be removed, but excluded for function parameters in #18615 to make PRs smaller
-  const isRemainingComment = comment.placement === "remaining";
-
-  // Only add dangling comments to fix the case when no params are present,
-  // i.e. a function without any argument.
   if (
-    ((isRemainingComment &&
-      isRealFunctionLikeNode(enclosingNode) &&
-      getFunctionParameters(enclosingNode).length === 0) ||
-      (isCallLikeExpression(enclosingNode) &&
-        getCallArguments(enclosingNode).length === 0)) &&
+    isCallLikeExpression(enclosingNode) &&
+    getCallArguments(enclosingNode).length === 0 &&
     isInArgumentOrParameterParentheses(enclosingNode, comment, options)
   ) {
     addDanglingComment(enclosingNode, comment);
@@ -656,13 +667,33 @@ function handleCommentInEmptyParens({ comment, enclosingNode, options }) {
   }
 
   if (
-    isRemainingComment &&
-    (enclosingNode.type === "MethodDefinition" ||
-      enclosingNode.type === "TSAbstractMethodDefinition") &&
-    getFunctionParameters(enclosingNode.value).length === 0 &&
+    isFlowComponent(enclosingNode) &&
+    getComponentParameters(enclosingNode).length === 0 &&
     isInArgumentOrParameterParentheses(enclosingNode, comment, options)
   ) {
-    addDanglingComment(enclosingNode.value, comment);
+    addDanglingComment(enclosingNode, comment);
+    return true;
+  }
+
+  // Only add dangling comments to fix the case when no params are present,
+  // i.e. a function without any argument.
+
+  const functionNode =
+    isRealFunctionLikeNode(enclosingNode) ||
+    enclosingNode.type === "HookTypeAnnotation"
+      ? enclosingNode
+      : enclosingNode.type === "MethodDefinition" ||
+          enclosingNode.type === "TSAbstractMethodDefinition" ||
+          (enclosingNode.type === "Property" && isMethod(enclosingNode))
+        ? enclosingNode.value
+        : undefined;
+
+  if (
+    functionNode &&
+    getFunctionParameters(functionNode).length === 0 &&
+    isInArgumentOrParameterParentheses(functionNode, comment, options)
+  ) {
+    addDanglingComment(functionNode, comment);
     return true;
   }
 
@@ -691,7 +722,8 @@ function handleLastComponentArgComments({
   if (
     (precedingNode?.type === "ComponentParameter" ||
       precedingNode?.type === "RestElement") &&
-    enclosingNode?.type === "ComponentDeclaration" &&
+    (enclosingNode?.type === "ComponentDeclaration" ||
+      enclosingNode?.type === "DeclareComponent") &&
     getNextNonSpaceNonCommentCharacter(text, locEnd(comment)) === ")"
   ) {
     addTrailingComment(precedingNode, comment);
@@ -701,7 +733,7 @@ function handleLastComponentArgComments({
   return false;
 }
 
-function handleLastFunctionArgComments({
+function handleLastFunctionParameterComments({
   comment,
   precedingNode,
   enclosingNode,
@@ -1239,6 +1271,7 @@ const isRealFunctionLikeNode = createTypeCheckFunction([
   "TSConstructorType",
   "TSFunctionType",
   "TSDeclareMethod",
+  "HookDeclaration",
 ]);
 
 const handleComments = {
